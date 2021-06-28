@@ -36,11 +36,12 @@ class ASTGenerator:
                     children.append(self._term_builder(sym))
             else:
                 children.append(sym)
-        tree = Tree(rule.alias or rule.origin.name, children)
-        if not rule.alias and (tree.data.startswith("_") or (rule.options.expand1 and len(children) == 1)):
-            hole.expand(tree)
+        name = rule.alias or rule.origin.name
+        if not rule.alias and (name.startswith("_") or (rule.options.expand1 and len(children) == 1)):
+            tree = InlineTree(name, children)
         else:
-            hole.fill(tree)
+            tree = Tree(name, children)
+        hole.fill(tree)
 
     def start_build(self, start=None):
         # We could just copy the code
@@ -81,34 +82,29 @@ class InlineTree(Tree):
 
 
 class Hole:
-    def __init__(self, target: Optional[list], index: int, hole_tree: HoleTree, path: tuple[int, ...]):
+    def __init__(self, target: Optional[Tree], index: int, hole_tree: HoleTree, path: tuple[int, ...]):
         self.target = target
         if target is None:
             self.symbol = index
             self.index = 0
         else:
-            self.symbol = target[index]
+            self.symbol = target.children[index]
             self.index = index
         assert isinstance(self.symbol, NonTerminal), self.symbol
         self.hole_tree = hole_tree
         self.path = path
 
-    def _get_holes(self, values, target, offset):
+    def _get_holes(self, values, target):
         for i, v in enumerate(values):
             if isinstance(v, NonTerminal):
-                yield Hole(target, offset + i, self.hole_tree, (*self.path, i))
-
-    def expand(self, tree: Tree):
-        assert self.target is not None, "start rule can't be inlined"
-        self.target[self.index] = InlineTree(tree.data, tree.children, tree.meta)
-        self.hole_tree.filled(self, self._get_holes(tree.children, tree.children, 0))
+                yield Hole(target, i, self.hole_tree, (*self.path, i))
 
     def fill(self, tree: Tree):
         if self.target is None:
             self.hole_tree.set_start(tree)
         else:
-            self.target[self.index] = tree
-        self.hole_tree.filled(self, self._get_holes(tree.children, tree.children, 0))
+            self.target.children[self.index] = tree
+        self.hole_tree.filled(self, self._get_holes(tree.children, tree))
 
 
 def flatten_inline_tree(items):
@@ -148,7 +144,7 @@ class HoleTree:
             assert nh.path not in self.holes_by_path
             self.holes_by_path[nh.path] = nh
 
-    def tree(self, raw:bool = False):
+    def tree(self, raw: bool = False):
         return _InlineExpands().visit(self._tree) if not raw else self._tree
 
     @property
