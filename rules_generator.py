@@ -2,16 +2,12 @@ from collections import defaultdict
 from operator import neg
 from typing import Iterable
 
-from lark import Lark, Tree, Token
-from lark.grammar import Symbol, NonTerminal, Terminal
-from lark.reconstruct import Reconstructor, is_iter_empty
-from lark.tree_matcher import is_discarded_terminal, TreeMatcher
-from lark.visitors import Transformer_InPlace, Interpreter
+from lark import Tree
+from lark.tree_matcher import TreeMatcher
 
 
-class RulesGenerator(Interpreter):
+class RulesGenerator:
     def __init__(self, parser):
-        super(RulesGenerator, self).__init__()
         self.parser = parser
         self.rules_by_name = defaultdict(list)
         self.aliases = defaultdict(list)
@@ -54,7 +50,7 @@ class RulesGenerator(Interpreter):
         assert len(matches) == 1, ("Can't decide which rule was applied", candidates, matches)
         return matches[0][1]
 
-    def __default__(self, tree):
+    def _traverse(self, tree):
         """ Called for every Tree top-down """
         # Check whether this node has already been matched to actual rules
         if not getattr(tree.meta, 'match_tree', False):
@@ -70,7 +66,7 @@ class RulesGenerator(Interpreter):
             if isinstance(c, Tree):
                 self.current_path.append(i)
                 # Recursively do this algorithm top to bottom for all nodes.
-                tree.children[i] = self.visit(c)
+                tree.children[i] = self._traverse(c)
                 self.current_path.pop()
         return tree
 
@@ -96,6 +92,6 @@ class RulesGenerator(Interpreter):
         self.values = {}
 
         # Collect the rule indices in .values
-        self.visit(tree)
+        self._traverse(tree)
         # Sort the rule indices BFS
         return [i for k, i in sorted(self.values.items(), key=lambda t: tuple(map(neg, t[0])))]
