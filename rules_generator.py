@@ -34,35 +34,19 @@ class RulesGenerator(Interpreter):
         else:
             return False
 
-    def _check_rule(self, rule, children):
-        i = 0
-        for e in rule.expansion:
-            if e.is_term:
-                if not e.filter_out:
-                    if i >= len(children): return False
-                    t = children[i]
-                    if not (isinstance(t, Token) and t.type == e.name):
-                        return False
-                    i += 1
-            else:
-                if i >= len(children): return False
-                t = children[i]
-                if not (isinstance(t, Tree) and self._check_name(t.data, e.name)):
-                    return False
-                i += 1
-        return i == len(children)
+    def _check_expansion(self, orig_expansion, expansion):
+        return len(orig_expansion) == len(expansion) and all(o == e for o, e in zip(orig_expansion, expansion))
 
     def get_rule(self, tree):
         candidates = self.rules_by_name[tree.data]
         matches = [(r, i) for (r, i) in candidates
-                   if self._check_rule(r, tree.children)]
+                   if self._check_expansion(tree.meta.orig_expansion, r.expansion)]
         if not matches:
             # Sometimes, tree_matcher returns weird self rules Tree('expansion', [Tree('expansion', [...])])
-            if len(tree.children) == 1 and isinstance(tree.children[0], Tree) and self._check_name(
-                    tree.children[0].data, tree.data):
+            if len(tree.meta.orig_expansion) == 1 and self._check_name(tree.meta.orig_expansion[0].name, tree.data):
                 return None
             assert matches, ("No rule left that was applied", tree, candidates)
-        # assert len(matches) == 1, ("Can't decide which rule was applied", candidates, matches)
+        assert len(matches) == 1, ("Can't decide which rule was applied", candidates, matches)
         return matches[0][1]
 
     def __default__(self, tree):
@@ -70,13 +54,13 @@ class RulesGenerator(Interpreter):
             # print("|"*len(self.current_path), "old", tree)
             tree = self.tree_matcher.match_tree(tree, tree.data)
         # print("|"*len(self.current_path), tree)
+        r = self.get_rule(tree)
         for i, c in enumerate(tree.children):
             if isinstance(c, Tree):
                 self.current_path.append(i)
                 tree.children[i] = self.visit(c)
                 self.current_path.pop()
         # print("|"*len(self.current_path),"final", tree)
-        r = self.get_rule(tree)
         if r is not None:
             self.values[tuple(self.current_path)] = r
         return tree

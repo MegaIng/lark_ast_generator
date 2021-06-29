@@ -5,11 +5,10 @@ from rules_generator import RulesGenerator
 rg = RulesGenerator(parser)
 
 pattern = parser.parse("""
-start: a a
-start: "a" a*
-start: a "a"
-start: "a" "a"
+start: "a"~5..5
+start: ("b"~5)~5
 """)
+print(pattern.pretty())
 
 rules = rg.get_rules(pattern)
 
@@ -22,3 +21,4 @@ tree = hole_tree.tree()
 
 print(tree.pretty())
 print(lark_reconstructor.reconstruct(tree))
+print(lark_reconstructor.reconstruct(pattern))
