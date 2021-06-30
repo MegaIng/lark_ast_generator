@@ -27,11 +27,13 @@ def regexp_builder(term_def):
         return Token(term_def.name, '/' + random_word("0123456789", (1,2)) + '/')
     elif term_def.name == "OP":
         return Token(term_def.name, choice(("+", "*", "?")))
+    elif term_def.name == "_NL":
+        return Token(term_def.name, "\n")
     else:
         raise ValueError(term_def)
 
 
-parser = Lark.open_from_package("lark", "lark.lark", ("grammars",))
+parser = Lark.open_from_package("lark", "lark.lark", ("grammars",), keep_all_tokens=True)
 
 lark_generator = ASTGenerator(parser, regexp_builder)
 lark_reconstructor = Reconstructor(parser, {

@@ -117,11 +117,31 @@ def flatten_inline_tree(items):
             yield x
 
 
-class _InlineExpands(Interpreter):
-    def __default__(self, tree):
-        new_tree = Tree(tree.data, list(flatten_inline_tree(tree.children)), tree.meta)
-        new_tree.children = self.visit_children(new_tree)
-        return new_tree
+def _inline_trees(tree):
+    def _visit(node):
+        if isinstance(node, Tree):
+            return _inline_trees(node)
+        else:
+            return node
+
+    new_tree = Tree(tree.data,
+                    [_visit(t) for t in flatten_inline_tree(tree.children)],
+                    tree.meta)
+    return new_tree
+
+
+def _fill_terminals(root, terminals):
+    def _visit(path, node):
+        if isinstance(node, Tree):
+            nn = node.copy()
+            nn.children = [_visit((*path, i), c) for i,c in enumerate(nn.children)]
+            return nn
+        else:
+            if path in terminals:
+                return terminals[path]
+            else:
+                return node
+    return _visit((), root)
 
 
 class HoleTree:
@@ -144,8 +164,13 @@ class HoleTree:
             assert nh.path not in self.holes_by_path
             self.holes_by_path[nh.path] = nh
 
-    def tree(self, raw: bool = False):
-        return _InlineExpands().visit(self._tree) if not raw else self._tree
+    def tree(self, raw: bool = False, terminals: dict[tuple[int, ...], Token] = None):
+        tree = self._tree
+        if terminals is not None:
+            tree = _fill_terminals(tree, terminals)
+        if not raw:
+            tree = _inline_trees(tree)
+        return tree
 
     @property
     def bfs_first_hole(self):

@@ -4,21 +4,26 @@ from rules_generator import RulesGenerator
 
 rg = RulesGenerator(parser)
 
-pattern = parser.parse("""
+pattern = parser.parse("""\
 start: "a"~5..5
 start: ("b"~5)~5
 """)
 print(pattern.pretty())
+print(lark_reconstructor.reconstruct(pattern))
 
-rules = rg.get_rules(pattern)
+rules, terms = rg.get_rules(pattern)
+
+print(rules)
+print(terms)
 
 hole_tree = lark_generator.start_build()
-print(rules)
 
 lark_generator.build_absolute_index(hole_tree, rules)
 
 tree = hole_tree.tree()
+tree_with_terms = hole_tree.tree(terminals=terms)
 
 print(tree.pretty())
 print(lark_reconstructor.reconstruct(tree))
-print(lark_reconstructor.reconstruct(pattern))
+print(tree_with_terms.pretty())
+print(lark_reconstructor.reconstruct(tree_with_terms))
